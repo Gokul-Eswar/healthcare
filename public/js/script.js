@@ -91,23 +91,29 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Functions ---
     function switchPage(pageId) {
-        pages.forEach(page => page.style.display = 'none');
+        pages.forEach(page => {
+            if (page) page.style.display = 'none';
+        });
         const pageToShow = document.getElementById(pageId + '-page');
         if (pageToShow) {
             pageToShow.style.display = 'block';
         }
 
         links.forEach(link => {
-            const isActive = link.dataset.page === pageId;
-            link.classList.toggle('active', isActive);
-            if (isActive) {
-                pageTitle.textContent = link.querySelector('span').textContent;
+            if (link) {
+                const isActive = link.dataset.page === pageId;
+                link.classList.toggle('active', isActive);
+                if (isActive) {
+                    pageTitle.textContent = link.querySelector('span').textContent;
+                }
             }
         });
     }
 
     function renderPatientPortal(view) {
-        patientPortalContainer.innerHTML = patientPortalTemplates[view];
+        if (patientPortalContainer) {
+            patientPortalContainer.innerHTML = patientPortalTemplates[view];
+        }
     }
 
     function renderTriagePatient(patient) {
@@ -135,204 +141,250 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function fetchAndRenderTriage() {
-        const response = await fetch('/api/patients/awaiting-triage');
-        const patients = await response.json();
-        awaitingTriageColumn.innerHTML = '';
-        patients.forEach(patient => {
-            awaitingTriageColumn.innerHTML += renderTriagePatient(patient);
-        });
-        awaitingTriageCount.textContent = patients.length;
+        if (awaitingTriageColumn) {
+            const response = await fetch('/api/patients/awaiting-triage');
+            const patients = await response.json();
+            awaitingTriageColumn.innerHTML = '';
+            patients.forEach(patient => {
+                awaitingTriageColumn.innerHTML += renderTriagePatient(patient);
+            });
+            if (awaitingTriageCount) {
+                awaitingTriageCount.textContent = patients.length;
+            }
+        }
     }
 
     async function renderSchedule() {
-        const response = await fetch('/api/staff');
-        const staffSchedule = await response.json();
-        scheduleGrid.innerHTML = '';
-        staffSchedule.forEach(staff => {
-            const statusClass = {
-                'Available': 'bg-green-100 text-green-800',
-                'With Patient': 'bg-blue-100 text-blue-800',
-                'On Break': 'bg-yellow-100 text-yellow-800'
-            };
-            const staffCard = `
-                <div class="border rounded-lg p-4 bg-gray-50">
-                    <div>
-                        <p class="font-bold">${staff.name}</p>
-                        <p class="text-sm text-gray-500">${staff.role}</p>
-                    </div>
-                    <div class="flex justify-between items-center mt-4">
-                        <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full ${statusClass[staff.status] || 'bg-gray-100 text-gray-800'}">${staff.status}</span>
-                        <span class="text-xs font-semibold text-gray-600">${staff.queue} Patients Waiting</span>
-                    </div>
-                </div>`;
-            scheduleGrid.insertAdjacentHTML('beforeend', staffCard);
-        });
+        if (scheduleGrid) {
+            const response = await fetch('/api/staff');
+            const staffSchedule = await response.json();
+            scheduleGrid.innerHTML = '';
+            staffSchedule.forEach(staff => {
+                const statusClass = {
+                    'Available': 'bg-green-100 text-green-800',
+                    'With Patient': 'bg-blue-100 text-blue-800',
+                    'On Break': 'bg-yellow-100 text-yellow-800'
+                };
+                const staffCard = `
+                    <div class="border rounded-lg p-4 bg-gray-50">
+                        <div>
+                            <p class="font-bold">${staff.name}</p>
+                            <p class="text-sm text-gray-500">${staff.role}</p>
+                        </div>
+                        <div class="flex justify-between items-center mt-4">
+                            <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full ${statusClass[staff.status] || 'bg-gray-100 text-gray-800'}">${staff.status}</span>
+                            <span class="text-xs font-semibold text-gray-600">${staff.queue} Patients Waiting</span>
+                        </div>
+                    </div>`;
+                scheduleGrid.insertAdjacentHTML('beforeend', staffCard);
+            });
+        }
     }
 
     async function renderWeeklySchedule(schedule) {
-        scheduleGrid.innerHTML = '';
-        scheduleGrid.classList.remove('md:grid-cols-2', 'lg:grid-cols-3');
-        scheduleGrid.classList.add('grid-cols-1');
+        if (scheduleGrid) {
+            scheduleGrid.innerHTML = '';
+            scheduleGrid.classList.remove('md:grid-cols-2', 'lg:grid-cols-3');
+            scheduleGrid.classList.add('grid-cols-1');
 
-        for (const day in schedule) {
-            const dayCard = `
-                <div class="border rounded-lg p-4 bg-gray-50">
-                    <h3 class="font-bold text-lg mb-2">${day}</h3>
-                    <div class="space-y-2">
-                        <div>
-                            <p class="font-semibold">Morning (7am - 3pm)</p>
-                            <p class="text-sm text-gray-600">Doctor: ${schedule[day].Morning.doctor}</p>
-                            <p class="text-sm text-gray-600">Nurse: ${schedule[day].Morning.nurse}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Afternoon (3pm - 11pm)</p>
-                            <p class="text-sm text-gray-600">Doctor: ${schedule[day].Afternoon.doctor}</p>
-                            <p class="text-sm text-gray-600">Nurse: ${schedule[day].Afternoon.nurse}</p>
-                        </div>
-                        <div>
-                            <p class="font-semibold">Night (11pm - 7am)</p>
-                            <p class="text-sm text-gray-600">Doctor: ${schedule[day].Night.doctor}</p>
-                            <p class="text-sm text-gray-600">Nurse: ${schedule[day].Night.nurse}</p>
+            for (const day in schedule) {
+                const dayCard = `
+                    <div class="border rounded-lg p-4 bg-gray-50">
+                        <h3 class="font-bold text-lg mb-2">${day}</h3>
+                        <div class="space-y-2">
+                            <div>
+                                <p class="font-semibold">Morning (7am - 3pm)</p>
+                                <p class="text-sm text-gray-600">Doctor: ${schedule[day].Morning.doctor}</p>
+                                <p class="text-sm text-gray-600">Nurse: ${schedule[day].Morning.nurse}</p>
+                            </div>
+                            <div>
+                                <p class="font-semibold">Afternoon (3pm - 11pm)</p>
+                                <p class="text-sm text-gray-600">Doctor: ${schedule[day].Afternoon.doctor}</p>
+                                <p class="text-sm text-gray-600">Nurse: ${schedule[day].Afternoon.nurse}</p>
+                            </div>
+                            <div>
+                                <p class="font-semibold">Night (11pm - 7am)</p>
+                                <p class="text-sm text-gray-600">Doctor: ${schedule[day].Night.doctor}</p>
+                                <p class="text-sm text-gray-600">Nurse: ${schedule[day].Night.nurse}</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            `;
-            scheduleGrid.insertAdjacentHTML('beforeend', dayCard);
+                `;
+                scheduleGrid.insertAdjacentHTML('beforeend', dayCard);
+            }
         }
     }
 
 
     // --- Event Listeners ---
-    links.forEach(link => {
-        link.addEventListener('click', function(e) {
-            e.preventDefault();
-            switchPage(this.dataset.page);
+    if (links) {
+        links.forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                switchPage(this.dataset.page);
+            });
         });
-    });
+    }
 
-    patientPortalContainer.addEventListener('click', function(e) {
-        const action = e.target.closest('[data-portal-action]')?.dataset.portalAction;
-        if (action) {
-            e.preventDefault();
-            switch(action) {
-                case 'showHome': renderPatientPortal('home'); break;
-                case 'showAmbulanceHome': renderPatientPortal('ambulanceHome'); break;
-                case 'showAmbulanceForm': renderPatientPortal('ambulanceForm'); break;
-                case 'showTracker': renderPatientPortal('journeyTracker'); break;
+    if (patientPortalContainer) {
+        patientPortalContainer.addEventListener('click', function(e) {
+            const action = e.target.closest('[data-portal-action]')?.dataset.portalAction;
+            if (action) {
+                e.preventDefault();
+                switch(action) {
+                    case 'showHome': renderPatientPortal('home'); break;
+                    case 'showAmbulanceHome': renderPatientPortal('ambulanceHome'); break;
+                    case 'showAmbulanceForm': renderPatientPortal('ambulanceForm'); break;
+                    case 'showTracker': renderPatientPortal('journeyTracker'); break;
+                }
             }
-        }
-    });
+        });
+    }
 
-    // --- Interactive Header Dropdowns ---
-    notificationButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        notificationDropdown.classList.toggle('hidden');
-        userDropdown.classList.add('hidden'); // Hide other dropdown
-    });
+    if (notificationButton) {
+        notificationButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (notificationDropdown) notificationDropdown.classList.toggle('hidden');
+            if (userDropdown) userDropdown.classList.add('hidden'); // Hide other dropdown
+        });
+    }
 
-    userButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        userDropdown.classList.toggle('hidden');
-        notificationDropdown.classList.add('hidden'); // Hide other dropdown
-    });
+    if (userButton) {
+        userButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (userDropdown) userDropdown.classList.toggle('hidden');
+            if (notificationDropdown) notificationDropdown.classList.add('hidden'); // Hide other dropdown
+        });
+    }
 
     document.addEventListener('click', () => {
-        notificationDropdown.classList.add('hidden');
-        userDropdown.classList.add('hidden');
+        if (notificationDropdown) notificationDropdown.classList.add('hidden');
+        if (userDropdown) userDropdown.classList.add('hidden');
     });
 
-    // --- Add Patient Modal Logic ---
-    addPatientButton.addEventListener('click', () => { addPatientModal.classList.remove('hidden'); });
-    const closeAddPatientModal = () => addPatientModal.classList.add('hidden');
-    closeModalButton.addEventListener('click', closeAddPatientModal);
-    cancelModalButton.addEventListener('click', closeAddPatientModal);
-
-    addPatientForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const patient = Object.fromEntries(formData.entries());
-
-        await fetch('/api/patients/awaiting-triage', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(patient)
+    if (addPatientButton) {
+        addPatientButton.addEventListener('click', () => {
+            if (addPatientModal) addPatientModal.classList.remove('hidden');
         });
+    }
 
-        e.target.reset();
-        closeAddPatientModal();
-        fetchAndRenderTriage();
-    });
+    const closeAddPatientModal = () => {
+        if (addPatientModal) addPatientModal.classList.add('hidden');
+    };
+    if (closeModalButton) closeModalButton.addEventListener('click', closeAddPatientModal);
+    if (cancelModalButton) cancelModalButton.addEventListener('click', closeAddPatientModal);
 
-    // --- Edit Profile Modal Logic ---
-    myProfileLink.addEventListener('click', (e) => {
-        e.preventDefault();
-        editProfileForm.elements.name.value = userNameDisplay.textContent;
-        editProfileForm.elements.email.value = userEmailDisplay.textContent;
-        editProfileModal.classList.remove('hidden');
-        userDropdown.classList.add('hidden');
-    });
+    if (addPatientForm) {
+        addPatientForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const patient = Object.fromEntries(formData.entries());
 
-    const closeProfileModal = () => editProfileModal.classList.add('hidden');
-    closeProfileModalButton.addEventListener('click', closeProfileModal);
-    cancelProfileModalButton.addEventListener('click', closeProfileModal);
+            await fetch('/api/patients/awaiting-triage', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(patient)
+            });
 
-    editProfileForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const newName = editProfileForm.elements.name.value;
-        const newEmail = editProfileForm.elements.email.value;
-        userNameDisplay.textContent = newName;
-        userEmailDisplay.textContent = newEmail;
-        const initials = newName.split(' ').map(n => n[0]).join('').toUpperCase();
-        userAvatar.src = `https://placehold.co/100x100/E0E7FF/4338CA?text=${initials}`;
-        userAvatar.alt = `${newName} Avatar`;
-        closeProfileModal();
-    });
-
-    // --- Add Schedule Modal Logic ---
-    addScheduleButton.addEventListener('click', () => { addScheduleModal.classList.remove('hidden'); });
-    const closeScheduleModal = () => addScheduleModal.classList.add('hidden');
-    closeScheduleModalButton.addEventListener('click', closeScheduleModal);
-    cancelScheduleModalButton.addEventListener('click', closeScheduleModal);
-
-    addScheduleForm.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const formData = new FormData(e.target);
-        const newStaff = Object.fromEntries(formData.entries());
-
-        await fetch('/api/staff', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(newStaff)
+            e.target.reset();
+            closeAddPatientModal();
+            fetchAndRenderTriage();
         });
+    }
 
-        e.target.reset();
-        closeScheduleModal();
-        renderSchedule();
-    });
+    if (myProfileLink) {
+        myProfileLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (editProfileForm) {
+                editProfileForm.elements.name.value = userNameDisplay.textContent;
+                editProfileForm.elements.email.value = userEmailDisplay.textContent;
+            }
+            if (editProfileModal) editProfileModal.classList.remove('hidden');
+            if (userDropdown) userDropdown.classList.add('hidden');
+        });
+    }
 
-    generateScheduleButton.addEventListener('click', async () => {
-        const response = await fetch('/api/staff/generate-schedule', { method: 'POST' });
-        const schedule = await response.json();
-        if (schedule.error) {
-            alert(schedule.error);
-        } else {
-            renderWeeklySchedule(schedule);
-        }
-    });
+    const closeProfileModal = () => {
+        if (editProfileModal) editProfileModal.classList.add('hidden');
+    };
+    if (closeProfileModalButton) closeProfileModalButton.addEventListener('click', closeProfileModal);
+    if (cancelProfileModalButton) cancelProfileModalButton.addEventListener('click', closeProfileModal);
+
+    if (editProfileForm) {
+        editProfileForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const newName = editProfileForm.elements.name.value;
+            const newEmail = editProfileForm.elements.email.value;
+            if (userNameDisplay) userNameDisplay.textContent = newName;
+            if (userEmailDisplay) userEmailDisplay.textContent = newEmail;
+            const initials = newName.split(' ').map(n => n[0]).join('').toUpperCase();
+            if (userAvatar) {
+                userAvatar.src = `https://placehold.co/100x100/E0E7FF/4338CA?text=${initials}`;
+                userAvatar.alt = `${newName} Avatar`;
+            }
+            closeProfileModal();
+        });
+    }
+
+    if (addScheduleButton) {
+        addScheduleButton.addEventListener('click', () => {
+            if (addScheduleModal) addScheduleModal.classList.remove('hidden');
+        });
+    }
+
+    const closeScheduleModal = () => {
+        if (addScheduleModal) addScheduleModal.classList.add('hidden');
+    };
+    if (closeScheduleModalButton) closeScheduleModalButton.addEventListener('click', closeScheduleModal);
+    if (cancelScheduleModalButton) cancelScheduleModalButton.addEventListener('click', closeScheduleModal);
+
+    if (addScheduleForm) {
+        addScheduleForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const newStaff = Object.fromEntries(formData.entries());
+
+            await fetch('/api/staff', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newStaff)
+            });
+
+            e.target.reset();
+            closeScheduleModal();
+            renderSchedule();
+        });
+    }
+
+    if (generateScheduleButton) {
+        generateScheduleButton.addEventListener('click', async () => {
+            const response = await fetch('/api/staff/generate-schedule', { method: 'POST' });
+            const schedule = await response.json();
+            if (schedule.error) {
+                alert(schedule.error);
+            } else {
+                renderWeeklySchedule(schedule);
+            }
+        });
+    }
 
 
     // --- Initial Page Load ---
     switchPage('dashboard');
     renderPatientPortal('home');
     fetchAndRenderTriage();
-    scheduleDate.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    if (scheduleDate) {
+        scheduleDate.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    }
     renderSchedule();
 
 
     // --- Chart Initializations ---
-    const commonChartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } };
+    if (document.getElementById('patientArrivalsChart')) {
+        const commonChartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } };
 
-    new Chart(document.getElementById('patientArrivalsChart').getContext('2d'), { type: 'line', data: { labels: ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'], datasets: [{ data: [4, 3, 6, 8, 12, 16, 11, 7], borderColor: '#4338ca', tension: 0.4, fill: false, borderWidth: 2 }] }, options: commonChartOptions });
-    new Chart(document.getElementById('emergencyImpactChart').getContext('2d'), { type: 'bar', data: { labels: ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'], datasets: [{ label: 'Standard', data: [12, 18, 18, 16, 18, 14], backgroundColor: '#3b82f6' }, { label: 'Emergency', data: [2, 3, 6, 8, 3, 2], backgroundColor: '#ef4444' }] }, options: { ...commonChartOptions, scales: { x: { stacked: true }, y: { stacked: true } } } });
-    new Chart(document.getElementById('admissionForecastChart').getContext('2d'), { type: 'line', data: { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], datasets: [{ data: [140, 145, 155, 150, 160, 162, 158], borderColor: '#22c55e', tension: 0.4, fill: false, borderWidth: 2, borderDash: [5, 5] }, { data: [142, 148, 158], borderColor: '#16a34a', tension: 0.4, fill: false, borderWidth: 3 }] }, options: commonChartOptions });
+        new Chart(document.getElementById('patientArrivalsChart').getContext('2d'), { type: 'line', data: { labels: ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'], datasets: [{ data: [4, 3, 6, 8, 12, 16, 11, 7], borderColor: '#4338ca', tension: 0.4, fill: false, borderWidth: 2 }] }, options: commonChartOptions });
+        new Chart(document.getElementById('emergencyImpactChart').getContext('2d'), { type: 'bar', data: { labels: ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'], datasets: [{ label: 'Standard', data: [12, 18, 18, 16, 18, 14], backgroundColor: '#3b82f6' }, { label: 'Emergency', data: [2, 3, 6, 8, 3, 2], backgroundColor: '#ef4444' }] }, options: { ...commonChartOptions, scales: { x: { stacked: true }, y: { stacked: true } } } });
+        new Chart(document.getElementById('admissionForecastChart').getContext('2d'), { type: 'line', data: { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], datasets: [{ data: [140, 145, 155, 150, 160, 162, 158], borderColor: '#22c55e', tension: 0.4, fill: false, borderWidth: 2, borderDash: [5, 5] }, { data: [142, 148, 158], borderColor: '#16a34a', tension: 0.4, fill: false, borderWidth: 3 }] }, options: commonChartOptions });
+    }
 });
