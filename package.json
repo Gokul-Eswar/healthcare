@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/Gokul-Eswar/healthcare#readme",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "express": "^5.1.0"
   }
 }

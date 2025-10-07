@@ -2,6 +2,11 @@ const express = require('express');
 const app = express();
 const port = 3000;
 
+if (!process.env.GEMINI_API_KEY) {
+    console.error("FATAL ERROR: GEMINI_API_KEY environment variable is not set.");
+    process.exit(1);
+}
+
 app.use(express.json());
 app.use(express.static('public'));
 
@@ -34,11 +39,17 @@ app.get('/api/patients/awaiting-triage', (req, res) => {
     res.json(awaitingTriage);
 });
 
-app.post('/api/patients/awaiting-triage', (req, res) => {
+const { getTriageLevel, generateWeeklySchedule } = require('./ai.js');
+
+app.post('/api/patients/awaiting-triage', async (req, res) => {
     const newPatient = req.body;
     newPatient.id = `P${Math.floor(Math.random() * 900) + 100}-XYZ1`;
     newPatient.queueNumber = awaitingTriage.length + 1;
-    newPatient.triageLevel = 3; // Default triage level
+
+    // Get triage level from Gemini API
+    const complaintForAI = `${newPatient.complaint} (Vitals: ${newPatient.vitals || 'N/A'})`;
+    newPatient.triageLevel = await getTriageLevel(complaintForAI);
+
     awaitingTriage.push(newPatient);
     res.status(201).json(newPatient);
 });
@@ -63,6 +74,13 @@ app.post('/api/staff', (req, res) => {
     newStaff.queue = 0;
     staffSchedule.push(newStaff);
     res.status(201).json(newStaff);
+});
+
+app.post('/api/staff/generate-schedule', async (req, res) => {
+    const doctors = staffSchedule.filter(s => s.role === 'Doctor').length;
+    const nurses = staffSchedule.filter(s => s.role === 'Nurse').length;
+    const schedule = await generateWeeklySchedule(doctors, nurses);
+    res.json(schedule);
 });
 
 

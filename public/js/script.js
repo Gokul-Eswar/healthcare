@@ -30,6 +30,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const addScheduleForm = document.getElementById('add-schedule-form');
     const scheduleGrid = document.getElementById('schedule-grid');
     const scheduleDate = document.getElementById('schedule-date');
+    const generateScheduleButton = document.getElementById('generate-schedule-button');
 
     // --- Page Templates ---
     const patientPortalTemplates = {
@@ -168,6 +169,38 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    async function renderWeeklySchedule(schedule) {
+        scheduleGrid.innerHTML = '';
+        scheduleGrid.classList.remove('md:grid-cols-2', 'lg:grid-cols-3');
+        scheduleGrid.classList.add('grid-cols-1');
+
+        for (const day in schedule) {
+            const dayCard = `
+                <div class="border rounded-lg p-4 bg-gray-50">
+                    <h3 class="font-bold text-lg mb-2">${day}</h3>
+                    <div class="space-y-2">
+                        <div>
+                            <p class="font-semibold">Morning (7am - 3pm)</p>
+                            <p class="text-sm text-gray-600">Doctor: ${schedule[day].Morning.doctor}</p>
+                            <p class="text-sm text-gray-600">Nurse: ${schedule[day].Morning.nurse}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Afternoon (3pm - 11pm)</p>
+                            <p class="text-sm text-gray-600">Doctor: ${schedule[day].Afternoon.doctor}</p>
+                            <p class="text-sm text-gray-600">Nurse: ${schedule[day].Afternoon.nurse}</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold">Night (11pm - 7am)</p>
+                            <p class="text-sm text-gray-600">Doctor: ${schedule[day].Night.doctor}</p>
+                            <p class="text-sm text-gray-600">Nurse: ${schedule[day].Night.nurse}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            scheduleGrid.insertAdjacentHTML('beforeend', dayCard);
+        }
+    }
+
 
     // --- Event Listeners ---
     links.forEach(link => {
@@ -275,6 +308,16 @@ document.addEventListener('DOMContentLoaded', function() {
         e.target.reset();
         closeScheduleModal();
         renderSchedule();
+    });
+
+    generateScheduleButton.addEventListener('click', async () => {
+        const response = await fetch('/api/staff/generate-schedule', { method: 'POST' });
+        const schedule = await response.json();
+        if (schedule.error) {
+            alert(schedule.error);
+        } else {
+            renderWeeklySchedule(schedule);
+        }
     });
 
 
