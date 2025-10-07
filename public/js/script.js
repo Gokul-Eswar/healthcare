@@ -31,13 +31,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const scheduleGrid = document.getElementById('schedule-grid');
     const scheduleDate = document.getElementById('schedule-date');
 
-    // --- Initial Data ---
-    let staffSchedule = [
-        { name: 'Dr. Sarah Johnson', role: 'Doctor', status: 'Available', queue: 0 },
-        { name: 'Dr. Michael Chen', role: 'Doctor', status: 'With Patient', queue: 2 },
-        { name: 'Nurse Jennifer Wilson', role: 'Nurse', status: 'On Break', queue: 0 },
-    ];
-
     // --- Page Templates ---
     const patientPortalTemplates = {
         home: `
@@ -116,12 +109,43 @@ document.addEventListener('DOMContentLoaded', function() {
         patientPortalContainer.innerHTML = patientPortalTemplates[view];
     }
 
-    function updateTriageCount() {
-        const count = awaitingTriageColumn.children.length;
-        awaitingTriageCount.textContent = count;
+    function renderTriagePatient(patient) {
+        const triageLevelColors = {
+            1: 'bg-red-100 text-red-800',
+            2: 'bg-orange-100 text-orange-800',
+            3: 'bg-yellow-100 text-yellow-800',
+            4: 'bg-green-100 text-green-800',
+            5: 'bg-blue-100 text-blue-800',
+        };
+        const color = triageLevelColors[patient.triageLevel] || 'bg-gray-100 text-gray-800';
+
+        return `
+            <div class="border p-4 rounded-lg bg-gray-50">
+                <p class="font-bold text-gray-800">${patient.name} (${patient.age}, ${patient.gender})</p>
+                <p class="text-sm text-gray-600 mt-1">${patient.complaint}</p>
+                <p class="text-xs text-gray-500 mt-2">Vitals: ${patient.vitals || 'N/A'}</p>
+                <div class="flex items-center space-x-2 mt-3">
+                    <span class="${color} text-xs font-semibold px-2.5 py-0.5 rounded-full">Level ${patient.triageLevel}</span>
+                    <span class="text-xs text-gray-500 font-mono">${patient.id}</span>
+                    <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Queue: #${patient.queueNumber}</span>
+                </div>
+                <button class="w-full bg-red-500 hover:bg-red-600 text-white mt-4 py-2 rounded-lg font-semibold">Triage Patient</button>
+            </div>`;
     }
 
-    function renderSchedule() {
+    async function fetchAndRenderTriage() {
+        const response = await fetch('/api/patients/awaiting-triage');
+        const patients = await response.json();
+        awaitingTriageColumn.innerHTML = '';
+        patients.forEach(patient => {
+            awaitingTriageColumn.innerHTML += renderTriagePatient(patient);
+        });
+        awaitingTriageCount.textContent = patients.length;
+    }
+
+    async function renderSchedule() {
+        const response = await fetch('/api/staff');
+        const staffSchedule = await response.json();
         scheduleGrid.innerHTML = '';
         staffSchedule.forEach(staff => {
             const statusClass = {
@@ -190,15 +214,20 @@ document.addEventListener('DOMContentLoaded', function() {
     closeModalButton.addEventListener('click', closeAddPatientModal);
     cancelModalButton.addEventListener('click', closeAddPatientModal);
 
-    addPatientForm.addEventListener('submit', (e) => {
+    addPatientForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
         const patient = Object.fromEntries(formData.entries());
-        const newPatientCard = `<div class="border p-4 rounded-lg bg-gray-50"><p class="font-bold text-gray-800">${patient.name} (${patient.age}, ${patient.gender})</p><p class="text-sm text-gray-600 mt-1">${patient.complaint}</p><p class="text-xs text-gray-500 mt-2">Vitals: ${patient.vitals || 'N/A'}</p><div class="flex items-center space-x-2 mt-3"><span class="bg-yellow-100 text-yellow-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Level 3</span><span class="text-xs text-gray-500 font-mono">P${Math.floor(Math.random() * 900) + 100}-XYZ1</span><span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Queue: #${awaitingTriageColumn.children.length + 1}</span></div><button class="w-full bg-red-500 hover:bg-red-600 text-white mt-4 py-2 rounded-lg font-semibold">Triage Patient</button></div>`;
-        awaitingTriageColumn.insertAdjacentHTML('beforeend', newPatientCard);
+
+        await fetch('/api/patients/awaiting-triage', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patient)
+        });
+
         e.target.reset();
         closeAddPatientModal();
-        updateTriageCount();
+        fetchAndRenderTriage();
     });
 
     // --- Edit Profile Modal Logic ---
@@ -232,26 +261,27 @@ document.addEventListener('DOMContentLoaded', function() {
     closeScheduleModalButton.addEventListener('click', closeScheduleModal);
     cancelScheduleModalButton.addEventListener('click', closeScheduleModal);
 
-    addScheduleForm.addEventListener('submit', (e) => {
+    addScheduleForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const formData = new FormData(e.target);
-        const newStaff = {
-            name: formData.get('name'),
-            role: formData.get('role'),
-            status: 'Available',
-            queue: 0
-        };
-        staffSchedule.push(newStaff);
-        renderSchedule();
+        const newStaff = Object.fromEntries(formData.entries());
+
+        await fetch('/api/staff', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newStaff)
+        });
+
         e.target.reset();
         closeScheduleModal();
+        renderSchedule();
     });
 
 
     // --- Initial Page Load ---
     switchPage('dashboard');
     renderPatientPortal('home');
-    updateTriageCount();
+    fetchAndRenderTriage();
     scheduleDate.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     renderSchedule();
 
