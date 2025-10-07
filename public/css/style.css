@@ -1,0 +1,25 @@
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: #f8fafc; /* slate-50 */
+}
+.page-content {
+    display: none;
+}
+.nav-link.active {
+    background-color: #4338ca; /* indigo-700 */
+    color: #ffffff;
+}
+.nav-link.active svg, .nav-link.active span {
+     color: #ffffff;
+}
+/* Custom scrollbar for Triage columns */
+.triage-column-body::-webkit-scrollbar {
+    width: 8px;
+}
+.triage-column-body::-webkit-scrollbar-track {
+    background: #f1f5f9; /* slate-100 */
+}
+.triage-column-body::-webkit-scrollbar-thumb {
+    background: #cbd5e1; /* slate-300 */
+    border-radius: 4px;
+}
