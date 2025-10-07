@@ -1,8 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
-const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const passport = require('./auth/passport');
+const authRoutes = require('./auth/routes');
 
 const app = express();
 const port = 3000;
@@ -21,35 +21,13 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
 app.use(express.json());
 app.use(express.static('public'));
 app.use(session({
-    secret: 'mycare-health-secret-session-key', // In production, use a more secure, random key
+    secret: process.env.SESSION_SECRET || 'mycare-health-secret-session-key',
     resave: false,
     saveUninitialized: true,
     cookie: { secure: false } // In production, set to true if using HTTPS
 }));
-
-// --- Passport.js Configuration ---
 app.use(passport.initialize());
 app.use(passport.session());
-
-passport.use(new GoogleStrategy({
-    clientID: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "http://localhost:3000/auth/google/callback"
-  },
-  function(accessToken, refreshToken, profile, cb) {
-    // In a real application, you would find or create a user in your database here
-    // For this example, we'll just pass the profile information along
-    return cb(null, profile);
-  }
-));
-
-passport.serializeUser(function(user, cb) {
-  cb(null, user);
-});
-
-passport.deserializeUser(function(obj, cb) {
-  cb(null, obj);
-});
 
 // --- Authentication Middleware ---
 function ensureAuthenticated(req, res, next) {
@@ -59,40 +37,8 @@ function ensureAuthenticated(req, res, next) {
     res.status(401).json({ error: 'User not authenticated' });
 }
 
-
-// --- Auth Routes ---
-app.get('/auth/google',
-  passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-app.get('/auth/google/callback',
-  passport.authenticate('google', { failureRedirect: '/' }),
-  function(req, res) {
-    // Successful authentication, redirect home.
-    res.redirect('/');
-  });
-
-app.get('/api/auth/status', (req, res) => {
-    if (req.isAuthenticated()) {
-        res.json({
-            loggedIn: true,
-            user: {
-                name: req.user.displayName,
-                email: req.user.emails[0].value,
-                avatar: req.user.photos[0].value
-            }
-        });
-    } else {
-        res.json({ loggedIn: false });
-    }
-});
-
-app.post('/auth/logout', (req, res, next) => {
-    req.logout(function(err) {
-        if (err) { return next(err); }
-        res.redirect('/');
-    });
-});
-
+// --- Routes ---
+app.use('/auth', authRoutes);
 
 // --- In-memory data stores ---
 let awaitingTriage = [
@@ -115,6 +61,21 @@ const { getTriageLevel, generateWeeklySchedule } = require('./ai.js');
 
 
 // --- API Endpoints ---
+app.get('/api/auth/status', (req, res) => {
+    if (req.isAuthenticated()) {
+        res.json({
+            loggedIn: true,
+            user: {
+                name: req.user.displayName,
+                email: req.user.emails[0].value,
+                avatar: req.user.photos[0].value
+            }
+        });
+    } else {
+        res.json({ loggedIn: false });
+    }
+});
+
 app.get('/api/patients/awaiting-triage', ensureAuthenticated, (req, res) => res.json(awaitingTriage));
 app.get('/api/patients/awaiting-bed', ensureAuthenticated, (req, res) => res.json(awaitingBed));
 app.get('/api/patients/admitted', ensureAuthenticated, (req, res) => res.json(admitted));
