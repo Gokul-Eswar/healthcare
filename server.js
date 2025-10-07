@@ -1,8 +1,8 @@
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
-const passport = require('./auth/passport');
-const authRoutes = require('./auth/routes');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 
 const app = express();
 const port = 3000;
@@ -26,8 +26,28 @@ app.use(session({
     saveUninitialized: true,
     cookie: { secure: false } // In production, set to true if using HTTPS
 }));
+
+// --- Passport.js Configuration ---
 app.use(passport.initialize());
 app.use(passport.session());
+
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: "http://localhost:3000/auth/google/callback"
+  },
+  function(accessToken, refreshToken, profile, cb) {
+    return cb(null, profile);
+  }
+));
+
+passport.serializeUser(function(user, cb) {
+  cb(null, user);
+});
+
+passport.deserializeUser(function(obj, cb) {
+  cb(null, obj);
+});
 
 // --- Authentication Middleware ---
 function ensureAuthenticated(req, res, next) {
@@ -37,8 +57,23 @@ function ensureAuthenticated(req, res, next) {
     res.status(401).json({ error: 'User not authenticated' });
 }
 
-// --- Routes ---
-app.use('/auth', authRoutes);
+// --- Auth Routes ---
+app.get('/auth/google',
+  passport.authenticate('google', { scope: ['profile', 'email'] }));
+
+app.get('/auth/google/callback',
+  passport.authenticate('google', { failureRedirect: '/' }),
+  function(req, res) {
+    res.redirect('/');
+  });
+
+app.post('/auth/logout', (req, res, next) => {
+    req.logout(function(err) {
+        if (err) { return next(err); }
+        res.redirect('/');
+    });
+});
+
 
 // --- In-memory data stores ---
 let awaitingTriage = [
