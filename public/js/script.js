@@ -21,7 +21,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const addScheduleForm = document.getElementById('add-schedule-form');
     const scheduleGrid = document.getElementById('schedule-grid');
     const scheduleDate = document.getElementById('schedule-date');
-    const generateScheduleButton = document.getElementById('generate-schedule-button');
 
     // --- Page Templates ---
     const patientPortalTemplates = {
@@ -115,6 +114,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    async function generateAndRenderWeeklySchedule() {
+        const response = await fetch('/api/staff/generate-schedule', { method: 'POST' });
+        const schedule = await response.json();
+        if (schedule.error) {
+            alert(schedule.error);
+        } else {
+            renderWeeklySchedule(schedule);
+        }
+    }
+
     function switchPage(pageId) {
         pages.forEach(page => {
             if (page) page.style.display = 'none';
@@ -122,6 +131,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const pageToShow = document.getElementById(pageId + '-page');
         if (pageToShow) {
             pageToShow.style.display = 'block';
+        }
+
+        if (pageId === 'scheduling') {
+            generateAndRenderWeeklySchedule();
+        } else {
+            renderSchedule();
         }
 
         links.forEach(link => {
@@ -161,7 +176,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     <span class="text-xs text-gray-500 font-mono">${patient.id}</span>
                     <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Queue: #${patient.queueNumber}</span>
                 </div>
-                <button data-patient-id="${patient.id}" class="assign-doctor-button w-full bg-blue-500 hover:bg-blue-600 text-white mt-4 py-2 rounded-lg font-semibold">Assign Doctor</button>
             </div>`;
     }
 
@@ -317,7 +331,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const formData = new FormData(e.target);
             const patient = Object.fromEntries(formData.entries());
 
-            await fetch('/api/patients/awaiting-triage', {
+            const response = await fetch('/api/patients/awaiting-triage', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(patient)
@@ -325,6 +339,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             e.target.reset();
             closeAddPatientModal();
+
+            const newPatientData = await response.json();
+            await fetch(`/api/patients/${newPatientData.id}/assign-doctor`, { method: 'POST' });
+
             fetchAndRenderTriage();
         });
     }
@@ -356,34 +374,6 @@ document.addEventListener('DOMContentLoaded', function() {
             e.target.reset();
             closeScheduleModal();
             renderSchedule();
-        });
-    }
-
-    if (generateScheduleButton) {
-        generateScheduleButton.addEventListener('click', async () => {
-            const response = await fetch('/api/staff/generate-schedule', { method: 'POST' });
-            const schedule = await response.json();
-            if (schedule.error) {
-                alert(schedule.error);
-            } else {
-                renderWeeklySchedule(schedule);
-            }
-        });
-    }
-
-    if (awaitingTriageColumn) {
-        awaitingTriageColumn.addEventListener('click', async (e) => {
-            if (e.target.classList.contains('assign-doctor-button')) {
-                const patientId = e.target.dataset.patientId;
-                const response = await fetch(`/api/patients/${patientId}/assign-doctor`, { method: 'POST' });
-                const result = await response.json();
-
-                if (result.success) {
-                    fetchAndRenderTriage();
-                } else {
-                    alert(`Error: ${result.error}`);
-                }
-            }
         });
     }
 
