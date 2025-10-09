@@ -98,8 +98,6 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <p id="user-email-display" class="text-sm text-gray-500">${data.user.email}</p>
                             </div>
                             <div class="p-2">
-                                <a href="#" id="my-profile-link" class="block px-4 py-2 text-sm text-gray-700 rounded-lg hover:bg-gray-50">My Profile</a>
-                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 rounded-lg hover:bg-gray-50">Settings</a>
                                 <form action="/auth/logout" method="post">
                                     <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 rounded-lg hover:bg-red-50 font-semibold">Logout</button>
                                 </form>
@@ -163,7 +161,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     <span class="text-xs text-gray-500 font-mono">${patient.id}</span>
                     <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded-full">Queue: #${patient.queueNumber}</span>
                 </div>
-                <button class="w-full bg-red-500 hover:bg-red-600 text-white mt-4 py-2 rounded-lg font-semibold">Triage Patient</button>
+                <button data-patient-id="${patient.id}" class="assign-doctor-button w-full bg-blue-500 hover:bg-blue-600 text-white mt-4 py-2 rounded-lg font-semibold">Assign Doctor</button>
             </div>`;
     }
 
@@ -367,6 +365,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 alert(schedule.error);
             } else {
                 renderWeeklySchedule(schedule);
+            }
+        });
+    }
+
+    if (awaitingTriageColumn) {
+        awaitingTriageColumn.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('assign-doctor-button')) {
+                const patientId = e.target.dataset.patientId;
+                const response = await fetch(`/api/patients/${patientId}/assign-doctor`, { method: 'POST' });
+                const result = await response.json();
+
+                if (result.success) {
+                    fetchAndRenderTriage();
+                } else {
+                    alert(`Error: ${result.error}`);
+                }
             }
         });
     }

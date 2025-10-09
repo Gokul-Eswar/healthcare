@@ -92,7 +92,7 @@ let staffSchedule = [
     { name: 'Nurse Jennifer Wilson', role: 'Nurse', status: 'On Break', queue: 0 },
 ];
 
-const { getTriageLevel, generateWeeklySchedule } = require('./ai.js');
+const { getTriageLevel, generateWeeklySchedule, getDoctorForPatient } = require('./ai.js');
 
 
 // --- API Endpoints ---
@@ -139,6 +139,39 @@ app.post('/api/staff/generate-schedule', ensureAuthenticated, async (req, res) =
     const nurses = staffSchedule.filter(s => s.role === 'Nurse').length;
     const schedule = await generateWeeklySchedule(doctors, nurses);
     res.json(schedule);
+});
+
+app.post('/api/patients/:id/assign-doctor', ensureAuthenticated, async (req, res) => {
+    const patientId = req.params.id;
+    const patientIndex = awaitingTriage.findIndex(p => p.id === patientId);
+
+    if (patientIndex === -1) {
+        return res.status(404).json({ error: 'Patient not found' });
+    }
+
+    const patient = awaitingTriage[patientIndex];
+    const availableDoctors = staffSchedule.filter(s => s.role === 'Doctor' && s.status === 'Available');
+
+    if (availableDoctors.length === 0) {
+        return res.status(400).json({ error: 'No available doctors' });
+    }
+
+    const recommendedDoctorName = await getDoctorForPatient(patient, availableDoctors);
+    const doctor = staffSchedule.find(d => d.name === recommendedDoctorName);
+
+    if (doctor) {
+        doctor.queue += 1;
+        doctor.status = 'With Patient';
+        patient.doctor = doctor.name;
+
+        // Move patient from triage to awaiting bed
+        awaitingTriage.splice(patientIndex, 1);
+        awaitingBed.push(patient);
+
+        res.json({ success: true, patient, doctor });
+    } else {
+        res.status(500).json({ error: 'Could not assign a doctor.' });
+    }
 });
 
 
