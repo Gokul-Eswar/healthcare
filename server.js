@@ -87,9 +87,11 @@ let admitted = [
     { id: 'P123-EFG8', name: 'Robert Chen', age: 67, gender: 'Male', complaint: 'Fall, possible fracture', vitals: 'HR: 72, BP: 130/85, Temp: 36.8C', triageLevel: 4 },
 ];
 let staffSchedule = [
-    { name: 'Dr. Sarah Johnson', role: 'Doctor', status: 'Available', queue: 0 },
-    { name: 'Dr. Michael Chen', role: 'Doctor', status: 'With Patient', queue: 2 },
+    { name: 'Dr. Sarah Johnson', role: 'Doctor', specialization: 'Cardiologist', status: 'Available', queue: 0 },
+    { name: 'Dr. Michael Chen', role: 'Doctor', specialization: 'Neurologist', status: 'With Patient', queue: 2 },
+    { name: 'Dr. Emily Davis', role: 'Doctor', specialization: 'General Medicine', status: 'Available', queue: 1 },
     { name: 'Nurse Jennifer Wilson', role: 'Nurse', status: 'On Break', queue: 0 },
+    { name: 'Nurse David Garcia', role: 'Nurse', status: 'Available', queue: 0 },
 ];
 
 const { getTriageLevel, generateWeeklySchedule, getDoctorForPatient } = require('./ai.js');
@@ -135,8 +137,8 @@ app.post('/api/staff', ensureAuthenticated, (req, res) => {
 });
 
 app.post('/api/staff/generate-schedule', ensureAuthenticated, async (req, res) => {
-    const doctors = staffSchedule.filter(s => s.role === 'Doctor').length;
-    const nurses = staffSchedule.filter(s => s.role === 'Nurse').length;
+    const doctors = staffSchedule.filter(s => s.role === 'Doctor');
+    const nurses = staffSchedule.filter(s => s.role === 'Nurse');
     const schedule = await generateWeeklySchedule(doctors, nurses);
     res.json(schedule);
 });

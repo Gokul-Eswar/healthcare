@@ -52,8 +52,15 @@ async function getTriageLevel(complaint) {
 
 async function generateWeeklySchedule(doctors, nurses) {
   try {
+    const doctorList = doctors.map(d => `${d.name} (${d.specialization})`).join(', ');
+    const nurseList = nurses.map(n => n.name).join(', ');
+
     const prompt = `
-      Create a 7-day staff schedule for a hospital emergency room with ${doctors} doctors and ${nurses} nurses.
+      Create a 7-day staff schedule for a hospital emergency room.
+
+      **Available Staff:**
+      - Doctors: ${doctorList}
+      - Nurses: ${nurseList}
 
       **Schedule Requirements:**
       1.  **Shifts:** There are three 8-hour shifts per day: Morning (7am-3pm), Afternoon (3pm-11pm), and Night (11pm-7am).
@@ -98,14 +105,15 @@ async function generateWeeklySchedule(doctors, nurses) {
 async function getDoctorForPatient(patient, availableDoctors) {
   try {
     const prompt = `
-      A new patient needs to be assigned to a doctor. Here are the details:
+      A new patient needs to be assigned to a doctor. Here are the patient's details:
       - Patient Complaint: "${patient.complaint}"
       - Triage Level: ${patient.triageLevel} (1=Critical, 5=Non-Urgent)
 
-      Here is the list of available doctors and their current number of assigned patients:
-      ${availableDoctors.map(d => `- ${d.name} (Patients: ${d.queue})`).join('\n')}
+      Here is the list of available doctors, their specializations, and their current number of assigned patients:
+      ${availableDoctors.map(d => `- ${d.name} (Specialization: ${d.specialization}, Patients: ${d.queue})`).join('\n')}
 
-      Based on the patient's needs and the doctors' current workload, which doctor is the most suitable?
+      Based on the patient's complaint, the doctors' specializations, and their current workload, which doctor is the most suitable?
+      Prioritize the best specialization for the complaint, but also consider the doctor with the lightest workload if multiple specialists are available.
       Please return only the name of the recommended doctor.
     `;
     const result = await model.generateContent(prompt);

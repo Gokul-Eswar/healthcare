@@ -190,11 +190,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     'With Patient': 'bg-blue-100 text-blue-800',
                     'On Break': 'bg-yellow-100 text-yellow-800'
                 };
+                const specialization = staff.specialization ? `<p class="text-sm text-gray-600">${staff.specialization}</p>` : '';
                 const staffCard = `
                     <div class="border rounded-lg p-4 bg-gray-50">
                         <div>
                             <p class="font-bold">${staff.name}</p>
                             <p class="text-sm text-gray-500">${staff.role}</p>
+                            ${specialization}
                         </div>
                         <div class="flex justify-between items-center mt-4">
                             <span class="text-xs font-semibold px-2.5 py-0.5 rounded-full ${statusClass[staff.status] || 'bg-gray-100 text-gray-800'}">${staff.status}</span>
