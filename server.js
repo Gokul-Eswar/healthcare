@@ -3,6 +3,8 @@ const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
+const db = require('./database.js');
+const { getTriageLevel, generateWeeklySchedule, getDoctorForPatient } = require('./ai.js');
 
 const app = express();
 const port = 3000;
@@ -58,15 +60,10 @@ function ensureAuthenticated(req, res, next) {
 }
 
 // --- Auth Routes ---
-app.get('/auth/google',
-  passport.authenticate('google', { scope: ['profile', 'email'] }));
-
-app.get('/auth/google/callback',
-  passport.authenticate('google', { failureRedirect: '/' }),
-  function(req, res) {
+app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }));
+app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/' }), (req, res) => {
     res.redirect('/');
-  });
-
+});
 app.post('/auth/logout', (req, res, next) => {
     req.logout(function(err) {
         if (err) { return next(err); }
@@ -74,108 +71,99 @@ app.post('/auth/logout', (req, res, next) => {
     });
 });
 
-
-// --- In-memory data stores ---
-let awaitingTriage = [
-    { id: 'P789-AXB4', name: 'John Smith', age: 45, gender: 'Male', complaint: 'Chest pain, shortness of breath', vitals: 'HR: 95, BP: 145/90, Temp: 37.2C', triageLevel: 2, queueNumber: 1 },
-    { id: 'P790-QWE3', name: 'Emily Davis', age: 34, gender: 'Female', complaint: 'High fever, flu symptoms', vitals: 'HR: 92, BP: 115/75, Temp: 39.5C', triageLevel: 3, queueNumber: 2 }
-];
-let awaitingBed = [
-    { id: 'P123-ABC1', name: 'Michael Johnson', age: 62, gender: 'Male', complaint: 'Severe abdominal pain', vitals: 'HR: 110, BP: 90/60, Temp: 38.1C', triageLevel: 1 },
-];
-let admitted = [
-    { id: 'P123-EFG8', name: 'Robert Chen', age: 67, gender: 'Male', complaint: 'Fall, possible fracture', vitals: 'HR: 72, BP: 130/85, Temp: 36.8C', triageLevel: 4 },
-];
-let staffSchedule = [
-    { name: 'Dr. Sarah Johnson', role: 'Doctor', specialization: 'Cardiologist', status: 'Available', queue: 0 },
-    { name: 'Dr. Michael Chen', role: 'Doctor', specialization: 'Neurologist', status: 'With Patient', queue: 2 },
-    { name: 'Dr. Emily Davis', role: 'Doctor', specialization: 'General Medicine', status: 'Available', queue: 1 },
-    { name: 'Nurse Jennifer Wilson', role: 'Nurse', status: 'On Break', queue: 0 },
-    { name: 'Nurse David Garcia', role: 'Nurse', status: 'Available', queue: 0 },
-];
-
-const { getTriageLevel, generateWeeklySchedule, getDoctorForPatient } = require('./ai.js');
-
-
 // --- API Endpoints ---
 app.get('/api/auth/status', (req, res) => {
     if (req.isAuthenticated()) {
-        res.json({
-            loggedIn: true,
-            user: {
-                name: req.user.displayName,
-                email: req.user.emails[0].value,
-                avatar: req.user.photos[0].value
-            }
-        });
+        res.json({ loggedIn: true, user: { name: req.user.displayName, email: req.user.emails[0].value, avatar: req.user.photos[0].value } });
     } else {
         res.json({ loggedIn: false });
     }
 });
 
-app.get('/api/patients/awaiting-triage', ensureAuthenticated, (req, res) => res.json(awaitingTriage));
-app.get('/api/patients/awaiting-bed', ensureAuthenticated, (req, res) => res.json(awaitingBed));
-app.get('/api/patients/admitted', ensureAuthenticated, (req, res) => res.json(admitted));
-app.get('/api/staff', ensureAuthenticated, (req, res) => res.json(staffSchedule));
+app.get('/api/patients/:status', ensureAuthenticated, (req, res) => {
+    db.all("SELECT * FROM patients WHERE status = ?", [req.params.status], (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json(rows);
+    });
+});
 
-app.post('/api/patients/awaiting-triage', ensureAuthenticated, async (req, res) => {
+app.get('/api/staff', ensureAuthenticated, (req, res) => {
+    db.all("SELECT * FROM staff", [], (err, rows) => {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.json(rows);
+    });
+});
+
+app.post('/api/patients', ensureAuthenticated, async (req, res) => {
     const newPatient = req.body;
-    newPatient.id = `P${Math.floor(Math.random() * 900) + 100}-XYZ1`;
-    newPatient.queueNumber = awaitingTriage.length + 1;
+    const patientId = `P${Math.floor(Math.random() * 900) + 100}-XYZ1`;
     const complaintForAI = `${newPatient.complaint} (Vitals: ${newPatient.vitals || 'N/A'})`;
-    newPatient.triageLevel = await getTriageLevel(complaintForAI);
-    awaitingTriage.push(newPatient);
-    res.status(201).json(newPatient);
+    const triageLevel = await getTriageLevel(complaintForAI);
+
+    const sql = `INSERT INTO patients (id, name, age, gender, complaint, vitals, triageLevel, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'awaiting-triage')`;
+    db.run(sql, [patientId, newPatient.name, newPatient.age, newPatient.gender, newPatient.complaint, newPatient.vitals, triageLevel], function(err) {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.status(201).json({ id: patientId, ...newPatient, triageLevel });
+    });
 });
 
 app.post('/api/staff', ensureAuthenticated, (req, res) => {
     const newStaff = req.body;
-    newStaff.status = 'Available';
-    newStaff.queue = 0;
-    staffSchedule.push(newStaff);
-    res.status(201).json(newStaff);
+    const sql = `INSERT INTO staff (name, role, specialization, status, queue) VALUES (?, ?, ?, 'Available', 0)`;
+    db.run(sql, [newStaff.name, newStaff.role, newStaff.specialization], function(err) {
+        if (err) {
+            res.status(500).json({ error: err.message });
+            return;
+        }
+        res.status(201).json({ id: this.lastID, ...newStaff });
+    });
 });
 
 app.post('/api/staff/generate-schedule', ensureAuthenticated, async (req, res) => {
-    const doctors = staffSchedule.filter(s => s.role === 'Doctor');
-    const nurses = staffSchedule.filter(s => s.role === 'Nurse');
-    const schedule = await generateWeeklySchedule(doctors, nurses);
-    res.json(schedule);
+    db.all("SELECT * FROM staff WHERE role = 'Doctor'", [], async (err, doctors) => {
+        if (err) { return res.status(500).json({ error: err.message }); }
+        db.all("SELECT * FROM staff WHERE role = 'Nurse'", [], async (err, nurses) => {
+            if (err) { return res.status(500).json({ error: err.message }); }
+            const schedule = await generateWeeklySchedule(doctors, nurses);
+            res.json(schedule);
+        });
+    });
 });
 
 app.post('/api/patients/:id/assign-doctor', ensureAuthenticated, async (req, res) => {
     const patientId = req.params.id;
-    const patientIndex = awaitingTriage.findIndex(p => p.id === patientId);
+    db.get("SELECT * FROM patients WHERE id = ?", [patientId], (err, patient) => {
+        if (err) { return res.status(500).json({ error: err.message }); }
+        if (!patient) { return res.status(404).json({ error: 'Patient not found' }); }
 
-    if (patientIndex === -1) {
-        return res.status(404).json({ error: 'Patient not found' });
-    }
+        db.all("SELECT * FROM staff WHERE role = 'Doctor' AND status = 'Available'", [], async (err, availableDoctors) => {
+            if (err) { return res.status(500).json({ error: err.message }); }
+            if (availableDoctors.length === 0) { return res.status(400).json({ error: 'No available doctors' }); }
 
-    const patient = awaitingTriage[patientIndex];
-    const availableDoctors = staffSchedule.filter(s => s.role === 'Doctor' && s.status === 'Available');
+            const recommendedDoctorName = await getDoctorForPatient(patient, availableDoctors);
+            const doctor = availableDoctors.find(d => d.name === recommendedDoctorName);
 
-    if (availableDoctors.length === 0) {
-        return res.status(400).json({ error: 'No available doctors' });
-    }
-
-    const recommendedDoctorName = await getDoctorForPatient(patient, availableDoctors);
-    const doctor = staffSchedule.find(d => d.name === recommendedDoctorName);
-
-    if (doctor) {
-        doctor.queue += 1;
-        doctor.status = 'With Patient';
-        patient.doctor = doctor.name;
-
-        // Move patient from triage to awaiting bed
-        awaitingTriage.splice(patientIndex, 1);
-        awaitingBed.push(patient);
-
-        res.json({ success: true, patient, doctor });
-    } else {
-        res.status(500).json({ error: 'Could not assign a doctor.' });
-    }
+            if (doctor) {
+                db.serialize(() => {
+                    db.run("UPDATE patients SET status = 'awaiting-bed', doctor = ? WHERE id = ?", ['Assigned to ' + doctor.name, patientId]);
+                    db.run("UPDATE staff SET queue = queue + 1 WHERE id = ?", [doctor.id]);
+                });
+                res.json({ success: true, patient, doctor });
+            } else {
+                res.status(500).json({ error: 'Could not assign a doctor.' });
+            }
+        });
+    });
 });
-
 
 app.listen(port, () => {
   console.log(`Server listening at http://localhost:${port}`);
