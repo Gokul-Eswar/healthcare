@@ -1,15 +1,24 @@
-require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const db = require('./database.js');
+const connectDB = require('./config/db');
+require('dotenv').config();
+const Patient = require('./models/Patient');
+const Staff = require('./models/Staff');
 const { getTriageLevel, generateWeeklySchedule, getDoctorForPatient } = require('./ai.js');
+
+// Connect to MongoDB
+connectDB();
 
 const app = express();
 const port = 3000;
 
 // --- Environment Variable Checks ---
+if (!process.env.MONGO_URI) {
+    console.error("FATAL ERROR: MONGO_URI environment variable is not set.");
+    process.exit(1);
+}
 if (!process.env.GEMINI_API_KEY) {
     console.error("FATAL ERROR: GEMINI_API_KEY environment variable is not set.");
     process.exit(1);
@@ -80,89 +89,94 @@ app.get('/api/auth/status', (req, res) => {
     }
 });
 
-app.get('/api/patients/:status', ensureAuthenticated, (req, res) => {
-    db.all("SELECT * FROM patients WHERE status = ?", [req.params.status], (err, rows) => {
-        if (err) {
-            res.status(500).json({ error: err.message });
-            return;
-        }
-        res.json(rows);
-    });
+app.get('/api/patients/:status', ensureAuthenticated, async (req, res) => {
+    try {
+        const patients = await Patient.find({ status: req.params.status });
+        res.json(patients);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.get('/api/staff', ensureAuthenticated, (req, res) => {
-    db.all("SELECT * FROM staff", [], (err, rows) => {
-        if (err) {
-            res.status(500).json({ error: err.message });
-            return;
-        }
-        res.json(rows);
-    });
+app.get('/api/staff', ensureAuthenticated, async (req, res) => {
+    try {
+        const staff = await Staff.find();
+        res.json(staff);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/api/patients', ensureAuthenticated, async (req, res) => {
-    const newPatient = req.body;
-    const patientId = `P${Math.floor(Math.random() * 900) + 100}-XYZ1`;
-    const complaintForAI = `${newPatient.complaint} (Vitals: ${newPatient.vitals || 'N/A'})`;
-    const triageLevel = await getTriageLevel(complaintForAI);
+    try {
+        const newPatientData = req.body;
+        const patientId = `P${Math.floor(Math.random() * 900) + 100}-XYZ1`;
+        const complaintForAI = `${newPatientData.complaint} (Vitals: ${newPatientData.vitals || 'N/A'})`;
+        const triageLevel = await getTriageLevel(complaintForAI);
 
-    const sql = `INSERT INTO patients (id, name, age, gender, complaint, vitals, triageLevel, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'awaiting-triage')`;
-    db.run(sql, [patientId, newPatient.name, newPatient.age, newPatient.gender, newPatient.complaint, newPatient.vitals, triageLevel], function(err) {
-        if (err) {
-            res.status(500).json({ error: err.message });
-            return;
-        }
-        res.status(201).json({ id: patientId, ...newPatient, triageLevel });
-    });
+        const patient = new Patient({
+            id: patientId,
+            ...newPatientData,
+            triageLevel
+        });
+        await patient.save();
+        res.status(201).json(patient);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
-app.post('/api/staff', ensureAuthenticated, (req, res) => {
-    const newStaff = req.body;
-    const sql = `INSERT INTO staff (name, role, specialization, status, queue) VALUES (?, ?, ?, 'Available', 0)`;
-    db.run(sql, [newStaff.name, newStaff.role, newStaff.specialization], function(err) {
-        if (err) {
-            res.status(500).json({ error: err.message });
-            return;
-        }
-        res.status(201).json({ id: this.lastID, ...newStaff });
-    });
+app.post('/api/staff', ensureAuthenticated, async (req, res) => {
+    try {
+        const newStaff = new Staff(req.body);
+        await newStaff.save();
+        res.status(201).json(newStaff);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/api/staff/generate-schedule', ensureAuthenticated, async (req, res) => {
-    db.all("SELECT * FROM staff WHERE role = 'Doctor'", [], async (err, doctors) => {
-        if (err) { return res.status(500).json({ error: err.message }); }
-        db.all("SELECT * FROM staff WHERE role = 'Nurse'", [], async (err, nurses) => {
-            if (err) { return res.status(500).json({ error: err.message }); }
-            const schedule = await generateWeeklySchedule(doctors, nurses);
-            res.json(schedule);
-        });
-    });
+    try {
+        const doctors = await Staff.find({ role: 'Doctor' });
+        const nurses = await Staff.find({ role: 'Nurse' });
+        const schedule = await generateWeeklySchedule(doctors, nurses);
+        res.json(schedule);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.post('/api/patients/:id/assign-doctor', ensureAuthenticated, async (req, res) => {
-    const patientId = req.params.id;
-    db.get("SELECT * FROM patients WHERE id = ?", [patientId], (err, patient) => {
-        if (err) { return res.status(500).json({ error: err.message }); }
-        if (!patient) { return res.status(404).json({ error: 'Patient not found' }); }
+    try {
+        const patient = await Patient.findOne({ id: req.params.id });
+        if (!patient) {
+            return res.status(404).json({ error: 'Patient not found' });
+        }
 
-        db.all("SELECT * FROM staff WHERE role = 'Doctor' AND status = 'Available'", [], async (err, availableDoctors) => {
-            if (err) { return res.status(500).json({ error: err.message }); }
-            if (availableDoctors.length === 0) { return res.status(400).json({ error: 'No available doctors' }); }
+        const availableDoctors = await Staff.find({ role: 'Doctor', status: 'Available' });
+        if (availableDoctors.length === 0) {
+            return res.status(400).json({ error: 'No available doctors' });
+        }
 
-            const recommendedDoctorName = await getDoctorForPatient(patient, availableDoctors);
-            const doctor = availableDoctors.find(d => d.name === recommendedDoctorName);
+        const recommendedDoctorName = await getDoctorForPatient(patient, availableDoctors);
+        const doctor = await Staff.findOne({ name: recommendedDoctorName });
 
-            if (doctor) {
-                db.serialize(() => {
-                    db.run("UPDATE patients SET status = 'awaiting-bed', doctor = ? WHERE id = ?", ['Assigned to ' + doctor.name, patientId]);
-                    db.run("UPDATE staff SET queue = queue + 1 WHERE id = ?", [doctor.id]);
-                });
-                res.json({ success: true, patient, doctor });
-            } else {
-                res.status(500).json({ error: 'Could not assign a doctor.' });
-            }
-        });
-    });
+        if (doctor) {
+            patient.status = 'awaiting-bed';
+            patient.doctor = doctor.name;
+            await patient.save();
+
+            doctor.queue += 1;
+            await doctor.save();
+
+            res.json({ success: true, patient, doctor });
+        } else {
+            res.status(500).json({ error: 'Could not assign a doctor.' });
+        }
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
 });
 
 app.listen(port, () => {
