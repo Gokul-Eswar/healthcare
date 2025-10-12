@@ -8,7 +8,6 @@ This is a web-based dashboard for managing hospital operations, including patien
 - **Triage & Queue:** Manage incoming patients with an AI-assisted triage system.
 - **Bed Management:** View the status of all hospital beds.
 - **Staff Scheduling:** Manage staff schedules with an AI-powered weekly schedule generator.
-- **Authentication:** Secure login/logout with Google OAuth 2.0.
 - **Patient Portal:** A portal for patients to access information (future development).
 - **Forecasting:** View patient arrival and admission forecasts (future development).
 
@@ -45,15 +44,13 @@ This script will install all the necessary dependencies and create a `.env` file
 bash setup.sh
 ```
 
-### 3. Configure Your API Keys
+### 3. Configure Your API Key
 
-The setup script will create a `.env` file in the root of the project. Open this file and add your API keys:
+The setup script will create a `.env` file in the root of the project. Open this file and add your Gemini API key:
 
 - `GEMINI_API_KEY`: Your API key for the Gemini service.
-- `GOOGLE_CLIENT_ID`: Your Google OAuth 2.0 Client ID.
-- `GOOGLE_CLIENT_SECRET`: Your Google OAuth 2.0 Client Secret.
 
-You can get these keys from the [Google AI Studio](https://aistudio.google.com/app/apikey) and the [Google API Console](https://console.cloud.google.com/apis/credentials).
+You can get a key from the [Google AI Studio](https://aistudio.google.com/app/apikey).
 
 ### 4. Run the Application
 
@@ -67,7 +64,6 @@ The application will be running at [http://localhost:3000](http://localhost:3000
 
 ## How to Use
 
-- **Sign In:** Click the "Sign in with Google" button to authenticate.
 - **Add a Patient:** Navigate to the "Triage & Queue" page and click the "Add Patient" button. The patient will be added to the queue with an AI-generated triage level.
-- **Generate a Schedule:** Go to the "Staff Scheduling" page and click the "Generate AI Schedule" button to create a new weekly schedule.
+- **View the Schedule:** Navigate to the "Staff Scheduling" page to see the automatically generated weekly schedule.
 - **Add Staff:** On the "Staff Scheduling" page, you can also manually add new staff members who will be included in future AI-generated schedules.

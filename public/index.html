@@ -86,9 +86,22 @@
                         </div>
                     </div>
 
-                    <!-- Auth Section -->
-                    <div id="auth-section">
-                        <!-- This will be dynamically populated by script.js -->
+                    <!-- User Profile Icon and Dropdown -->
+                    <div class="relative">
+                        <button id="user-button" class="flex items-center">
+                            <img id="user-avatar" class="h-9 w-9 rounded-full" src="https://placehold.co/100x100/E0E7FF/4338CA?text=SJ" alt="User Avatar">
+                        </button>
+                        <div id="user-dropdown" class="hidden absolute right-0 mt-3 w-64 bg-white rounded-lg shadow-xl border z-30">
+                            <div class="p-4 border-b">
+                                <p id="user-name-display" class="font-bold text-gray-800">Dr. Sarah Johnson</p>
+                                <p id="user-email-display" class="text-sm text-gray-500">s.johnson@mycarehealth.com</p>
+                            </div>
+                            <div class="p-2">
+                                <a href="#" id="my-profile-link" class="block px-4 py-2 text-sm text-gray-700 rounded-lg hover:bg-gray-50">My Profile</a>
+                                <a href="#" class="block px-4 py-2 text-sm text-gray-700 rounded-lg hover:bg-gray-50">Settings</a>
+                                <a href="#" class="block px-4 py-2 text-sm text-red-600 rounded-lg hover:bg-red-50 font-semibold">Logout</a>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </header>

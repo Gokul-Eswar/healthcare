@@ -6,7 +6,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const patientPortalContainer = document.getElementById('patient-portal-page');
     const notificationButton = document.getElementById('notification-button');
     const notificationDropdown = document.getElementById('notification-dropdown');
-    const authSection = document.getElementById('auth-section');
+    const userButton = document.getElementById('user-button');
+    const userDropdown = document.getElementById('user-dropdown');
+    const userAvatar = document.getElementById('user-avatar');
+    const userNameDisplay = document.getElementById('user-name-display');
+    const userEmailDisplay = document.getElementById('user-email-display');
     const addPatientButton = document.getElementById('add-patient-button');
     const addPatientModal = document.getElementById('add-patient-modal');
     const closeModalButton = document.getElementById('close-modal-button');
@@ -80,40 +84,6 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     // --- Functions ---
-    async function renderAuthStatus() {
-        const response = await fetch('/api/auth/status');
-        const data = await response.json();
-
-        if (authSection) {
-            if (data.loggedIn) {
-                authSection.innerHTML = `
-                    <div class="relative">
-                        <button id="user-button" class="flex items-center">
-                            <img id="user-avatar" class="h-9 w-9 rounded-full" src="${data.user.avatar}" alt="User Avatar">
-                        </button>
-                        <div id="user-dropdown" class="hidden absolute right-0 mt-3 w-64 bg-white rounded-lg shadow-xl border z-30">
-                            <div class="p-4 border-b">
-                                <p id="user-name-display" class="font-bold text-gray-800">${data.user.name}</p>
-                                <p id="user-email-display" class="text-sm text-gray-500">${data.user.email}</p>
-                            </div>
-                            <div class="p-2">
-                                <form action="/auth/logout" method="post">
-                                    <button type="submit" class="w-full text-left px-4 py-2 text-sm text-red-600 rounded-lg hover:bg-red-50 font-semibold">Logout</button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            } else {
-                authSection.innerHTML = `
-                    <a href="/auth/google" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg font-semibold">
-                        Sign in with Google
-                    </a>
-                `;
-            }
-        }
-    }
-
     async function generateAndRenderWeeklySchedule() {
         const response = await fetch('/api/staff/generate-schedule', { method: 'POST' });
         const schedule = await response.json();
@@ -135,8 +105,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (pageId === 'scheduling') {
             generateAndRenderWeeklySchedule();
-        } else {
-            renderSchedule();
         }
 
         links.forEach(link => {
@@ -285,33 +253,23 @@ document.addEventListener('DOMContentLoaded', function() {
     if (notificationButton) {
         notificationButton.addEventListener('click', (e) => {
             e.stopPropagation();
-            const dropdown = document.getElementById('notification-dropdown');
-            if (dropdown) dropdown.classList.toggle('hidden');
+            if (notificationDropdown) notificationDropdown.classList.toggle('hidden');
+            if (userDropdown) userDropdown.classList.add('hidden');
         });
     }
 
-    document.addEventListener('click', (e) => {
-        const userButton = document.getElementById('user-button');
-        const userDropdown = document.getElementById('user-dropdown');
-        if (userButton && userDropdown && !userButton.contains(e.target) && !userDropdown.contains(e.target)) {
-            userDropdown.classList.add('hidden');
-        }
+    if (userButton) {
+        userButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (userDropdown) userDropdown.classList.toggle('hidden');
+            if (notificationDropdown) notificationDropdown.classList.add('hidden');
+        });
+    }
 
-        if (notificationButton && notificationDropdown && !notificationButton.contains(e.target) && !notificationDropdown.contains(e.target)) {
-            notificationDropdown.classList.add('hidden');
-        }
+    document.addEventListener('click', () => {
+        if (notificationDropdown) notificationDropdown.classList.add('hidden');
+        if (userDropdown) userDropdown.classList.add('hidden');
     });
-
-    if (authSection) {
-        authSection.addEventListener('click', (e) => {
-            if (e.target.id === 'user-button' || e.target.closest('#user-button')) {
-                const userDropdown = document.getElementById('user-dropdown');
-                if (userDropdown) {
-                    userDropdown.classList.toggle('hidden');
-                }
-            }
-        });
-    }
 
     if (addPatientButton) {
         addPatientButton.addEventListener('click', () => {
@@ -331,7 +289,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const formData = new FormData(e.target);
             const patient = Object.fromEntries(formData.entries());
 
-            const response = await fetch('/api/patients/awaiting-triage', {
+            const response = await fetch('/api/patients', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(patient)
@@ -379,7 +337,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     // --- Initial Page Load ---
-    renderAuthStatus();
     switchPage('dashboard');
     renderPatientPortal('home');
     fetchAndRenderTriage();
