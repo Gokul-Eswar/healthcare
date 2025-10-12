@@ -11,6 +11,6 @@ const PatientSchema = new mongoose.Schema({
   queueNumber: { type: Number },
   doctor: { type: String },
   status: { type: String, default: 'awaiting-triage' },
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model('Patient', PatientSchema);

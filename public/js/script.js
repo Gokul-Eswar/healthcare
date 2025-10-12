@@ -224,6 +224,38 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    async function renderPatientArrivalsChart() {
+        const response = await fetch('/api/metrics/patient-arrivals');
+        const arrivals = await response.json();
+        const labels = Array.from({ length: 24 }, (_, i) => `${i.toString().padStart(2, '0')}:00`);
+        const data = Array(24).fill(0);
+        arrivals.forEach(arrival => {
+            data[arrival._id] = arrival.count;
+        });
+
+        if (document.getElementById('patientArrivalsChart')) {
+            new Chart(document.getElementById('patientArrivalsChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        borderColor: '#4338ca',
+                        tension: 0.4,
+                        fill: false,
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+    }
+
 
     // --- Event Listeners ---
     if (links) {
@@ -344,14 +376,5 @@ document.addEventListener('DOMContentLoaded', function() {
         scheduleDate.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
     }
     renderSchedule();
-
-
-    // --- Chart Initializations ---
-    if (document.getElementById('patientArrivalsChart')) {
-        const commonChartOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } };
-
-        new Chart(document.getElementById('patientArrivalsChart').getContext('2d'), { type: 'line', data: { labels: ['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00'], datasets: [{ data: [4, 3, 6, 8, 12, 16, 11, 7], borderColor: '#4338ca', tension: 0.4, fill: false, borderWidth: 2 }] }, options: commonChartOptions });
-        new Chart(document.getElementById('emergencyImpactChart').getContext('2d'), { type: 'bar', data: { labels: ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00'], datasets: [{ label: 'Standard', data: [12, 18, 18, 16, 18, 14], backgroundColor: '#3b82f6' }, { label: 'Emergency', data: [2, 3, 6, 8, 3, 2], backgroundColor: '#ef4444' }] }, options: { ...commonChartOptions, scales: { x: { stacked: true }, y: { stacked: true } } } });
-        new Chart(document.getElementById('admissionForecastChart').getContext('2d'), { type: 'line', data: { labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'], datasets: [{ data: [140, 145, 155, 150, 160, 162, 158], borderColor: '#22c55e', tension: 0.4, fill: false, borderWidth: 2, borderDash: [5, 5] }, { data: [142, 148, 158], borderColor: '#16a34a', tension: 0.4, fill: false, borderWidth: 3 }] }, options: commonChartOptions });
-    }
+    renderPatientArrivalsChart();
 });

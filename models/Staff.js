@@ -6,6 +6,6 @@ const StaffSchema = new mongoose.Schema({
   specialization: { type: String },
   status: { type: String, default: 'Available' },
   queue: { type: Number, default: 0 },
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model('Staff', StaffSchema);

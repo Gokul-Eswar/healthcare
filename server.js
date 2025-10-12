@@ -35,6 +35,25 @@ app.get('/api/patients/:status', async (req, res) => {
     }
 });
 
+app.get('/api/metrics/patient-arrivals', async (req, res) => {
+    try {
+        const arrivals = await Patient.aggregate([
+            {
+                $group: {
+                    _id: { $hour: "$createdAt" },
+                    count: { $sum: 1 }
+                }
+            },
+            {
+                $sort: { _id: 1 }
+            }
+        ]);
+        res.json(arrivals);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.get('/api/staff', async (req, res) => {
     try {
         const staff = await Staff.find();
