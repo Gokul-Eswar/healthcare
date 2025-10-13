@@ -1,30 +1,134 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // --- Global State ---
+    let currentUser = null;
+
     // --- DOM Elements ---
+    const loginPage = document.getElementById('login-page');
+    const mainApp = document.getElementById('main-app');
+    const loginForm = document.getElementById('login-form');
+    const loginError = document.getElementById('login-error');
+    const logoutButton = document.getElementById('logout-button');
+
     const links = document.querySelectorAll('.nav-link');
     const pages = document.querySelectorAll('.page-content');
     const pageTitle = document.getElementById('page-title');
-    const patientPortalContainer = document.getElementById('patient-portal-page');
-    const notificationButton = document.getElementById('notification-button');
-    const notificationDropdown = document.getElementById('notification-dropdown');
+
     const userButton = document.getElementById('user-button');
     const userDropdown = document.getElementById('user-dropdown');
     const userAvatar = document.getElementById('user-avatar');
     const userNameDisplay = document.getElementById('user-name-display');
-    const userEmailDisplay = document.getElementById('user-email-display');
+    const userRoleDisplay = document.getElementById('user-role-display');
+
     const addPatientButton = document.getElementById('add-patient-button');
     const addPatientModal = document.getElementById('add-patient-modal');
     const closeModalButton = document.getElementById('close-modal-button');
     const cancelModalButton = document.getElementById('cancel-modal-button');
     const addPatientForm = document.getElementById('add-patient-form');
+
     const awaitingTriageColumn = document.getElementById('awaiting-triage-column');
+    const awaitingBedColumn = document.getElementById('awaiting-bed-column');
+    const admittedColumn = document.getElementById('admitted-column');
     const awaitingTriageCount = document.getElementById('awaiting-triage-count');
+    const awaitingBedCount = document.getElementById('awaiting-bed-count');
+    const admittedCount = document.getElementById('admitted-count');
+
     const addScheduleButton = document.getElementById('add-schedule-button');
     const addScheduleModal = document.getElementById('add-schedule-modal');
     const closeScheduleModalButton = document.getElementById('close-schedule-modal-button');
     const cancelScheduleModalButton = document.getElementById('cancel-schedule-modal-button');
     const addScheduleForm = document.getElementById('add-schedule-form');
     const scheduleGrid = document.getElementById('schedule-grid');
-    const scheduleDate = document.getElementById('schedule-date');
+
+    const patientPortalContainer = document.getElementById('patient-portal-page');
+
+
+    // --- Authentication Functions ---
+    async function checkSession() {
+        try {
+            const response = await fetch('/api/auth/session');
+            if (response.ok) {
+                const user = await response.json();
+                initializeApp(user);
+            } else {
+                showLoginPage();
+            }
+        } catch (error) {
+            showLoginPage();
+        }
+    }
+
+    async function handleLogin(e) {
+        e.preventDefault();
+        loginError.classList.add('hidden');
+        const username = loginForm.username.value;
+        const password = loginForm.password.value;
+
+        try {
+            const response = await fetch('/api/auth/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username, password })
+            });
+
+            if (response.ok) {
+                const user = await response.json();
+                initializeApp(user);
+            } else {
+                loginError.classList.remove('hidden');
+            }
+        } catch (error) {
+            loginError.classList.remove('hidden');
+        }
+    }
+
+    async function handleLogout() {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        currentUser = null;
+        showLoginPage();
+    }
+
+    function showLoginPage() {
+        mainApp.classList.add('hidden');
+        loginPage.classList.remove('hidden');
+    }
+
+    // --- UI and App Initialization ---
+    function initializeApp(user) {
+        currentUser = user;
+        loginPage.classList.add('hidden');
+        mainApp.classList.remove('hidden');
+
+        // Setup UI based on user
+        setupUserUI(user);
+
+        // Load initial data
+        loadDashboardData();
+        switchPage('dashboard');
+    }
+
+    function setupUserUI(user) {
+        userNameDisplay.textContent = user.username;
+        userRoleDisplay.textContent = user.role;
+        const initials = user.username.charAt(0).toUpperCase();
+        userAvatar.src = `https://placehold.co/100x100/E0E7FF/4338CA?text=${initials}`;
+        userAvatar.alt = `${user.username} Avatar`;
+
+        // RBAC: Show/hide elements based on role
+        document.querySelectorAll('[data-role]').forEach(elem => {
+            const requiredRoles = elem.dataset.role.split(',');
+            if (requiredRoles.includes(user.role)) {
+                elem.style.display = '';
+            } else {
+                elem.style.display = 'none';
+            }
+        });
+    }
+
+    function loadDashboardData() {
+        renderPatientArrivalsChart();
+        fetchAndRenderColumns();
+        // Add other data loading functions here
+    }
 
     // --- Page Templates ---
     const patientPortalTemplates = {
@@ -147,16 +251,30 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>`;
     }
 
-    async function fetchAndRenderTriage() {
-        if (awaitingTriageColumn) {
-            const response = await fetch('/api/patients/awaiting-triage');
-            const patients = await response.json();
-            awaitingTriageColumn.innerHTML = '';
-            patients.forEach(patient => {
-                awaitingTriageColumn.innerHTML += renderTriagePatient(patient);
-            });
-            if (awaitingTriageCount) {
-                awaitingTriageCount.textContent = patients.length;
+    async function fetchAndRenderColumns() {
+        const statuses = ['awaiting-triage', 'awaiting-bed', 'admitted'];
+        const columns = {
+            'awaiting-triage': awaitingTriageColumn,
+            'awaiting-bed': awaitingBedColumn,
+            'admitted': admittedColumn
+        };
+        const counts = {
+            'awaiting-triage': awaitingTriageCount,
+            'awaiting-bed': awaitingBedCount,
+            'admitted': admittedCount
+        };
+
+        for (const status of statuses) {
+            if (columns[status]) {
+                const response = await fetch(`/api/patients/${status}`);
+                const patients = await response.json();
+                columns[status].innerHTML = '';
+                patients.forEach(patient => {
+                    columns[status].innerHTML += renderTriagePatient(patient);
+                });
+                if (counts[status]) {
+                    counts[status].textContent = patients.length;
+                }
             }
         }
     }
@@ -258,123 +376,85 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     // --- Event Listeners ---
-    if (links) {
-        links.forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                switchPage(this.dataset.page);
-            });
-        });
-    }
+    loginForm.addEventListener('submit', handleLogin);
+    logoutButton.addEventListener('click', handleLogout);
 
-    if (patientPortalContainer) {
-        patientPortalContainer.addEventListener('click', function(e) {
-            const action = e.target.closest('[data-portal-action]')?.dataset.portalAction;
-            if (action) {
-                e.preventDefault();
-                switch(action) {
-                    case 'showHome': renderPatientPortal('home'); break;
-                    case 'showAmbulanceHome': renderPatientPortal('ambulanceHome'); break;
-                    case 'showAmbulanceForm': renderPatientPortal('ambulanceForm'); break;
-                    case 'showTracker': renderPatientPortal('journeyTracker'); break;
-                }
-            }
+    links.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            switchPage(this.dataset.page);
         });
-    }
-
-    if (notificationButton) {
-        notificationButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (notificationDropdown) notificationDropdown.classList.toggle('hidden');
-            if (userDropdown) userDropdown.classList.add('hidden');
-        });
-    }
-
-    if (userButton) {
-        userButton.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (userDropdown) userDropdown.classList.toggle('hidden');
-            if (notificationDropdown) notificationDropdown.classList.add('hidden');
-        });
-    }
-
-    document.addEventListener('click', () => {
-        if (notificationDropdown) notificationDropdown.classList.add('hidden');
-        if (userDropdown) userDropdown.classList.add('hidden');
     });
 
-    if (addPatientButton) {
-        addPatientButton.addEventListener('click', () => {
-            if (addPatientModal) addPatientModal.classList.remove('hidden');
-        });
-    }
-
-    const closeAddPatientModal = () => {
-        if (addPatientModal) addPatientModal.classList.add('hidden');
-    };
-    if (closeModalButton) closeModalButton.addEventListener('click', closeAddPatientModal);
-    if (cancelModalButton) cancelModalButton.addEventListener('click', closeAddPatientModal);
-
-    if (addPatientForm) {
-        addPatientForm.addEventListener('submit', async (e) => {
+    patientPortalContainer.addEventListener('click', function(e) {
+        const action = e.target.closest('[data-portal-action]')?.dataset.portalAction;
+        if (action) {
             e.preventDefault();
-            const formData = new FormData(e.target);
-            const patient = Object.fromEntries(formData.entries());
+            switch(action) {
+                case 'showHome': renderPatientPortal('home'); break;
+                case 'showAmbulanceHome': renderPatientPortal('ambulanceHome'); break;
+                case 'showAmbulanceForm': renderPatientPortal('ambulanceForm'); break;
+                case 'showTracker': renderPatientPortal('journeyTracker'); break;
+            }
+        }
+    });
 
-            const response = await fetch('/api/patients', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(patient)
-            });
+    userButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        userDropdown.classList.toggle('hidden');
+    });
 
-            e.target.reset();
-            closeAddPatientModal();
+    document.addEventListener('click', () => {
+        userDropdown.classList.add('hidden');
+    });
 
-            const newPatientData = await response.json();
-            await fetch(`/api/patients/${newPatientData.id}/assign-doctor`, { method: 'POST' });
+    addPatientButton.addEventListener('click', () => addPatientModal.classList.remove('hidden'));
+    const closeAddPatientModal = () => addPatientModal.classList.add('hidden');
+    closeModalButton.addEventListener('click', closeAddPatientModal);
+    cancelModalButton.addEventListener('click', closeAddPatientModal);
 
-            fetchAndRenderTriage();
+    addPatientForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const patient = Object.fromEntries(formData.entries());
+
+        const response = await fetch('/api/patients', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(patient)
         });
-    }
 
-    if (addScheduleButton) {
-        addScheduleButton.addEventListener('click', () => {
-            if (addScheduleModal) addScheduleModal.classList.remove('hidden');
+        e.target.reset();
+        closeAddPatientModal();
+
+        const newPatientData = await response.json();
+        await fetch(`/api/patients/${newPatientData.id}/assign-doctor`, { method: 'POST' });
+
+        fetchAndRenderColumns();
+    });
+
+    addScheduleButton.addEventListener('click', () => addScheduleModal.classList.remove('hidden'));
+    const closeScheduleModal = () => addScheduleModal.classList.add('hidden');
+    closeScheduleModalButton.addEventListener('click', closeScheduleModal);
+    cancelScheduleModalButton.addEventListener('click', closeScheduleModal);
+
+    addScheduleForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        const newStaff = Object.fromEntries(formData.entries());
+
+        await fetch('/api/staff', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newStaff)
         });
-    }
 
-    const closeScheduleModal = () => {
-        if (addScheduleModal) addScheduleModal.classList.add('hidden');
-    };
-    if (closeScheduleModalButton) closeScheduleModalButton.addEventListener('click', closeScheduleModal);
-    if (cancelScheduleModalButton) cancelScheduleModalButton.addEventListener('click', closeScheduleModal);
-
-    if (addScheduleForm) {
-        addScheduleForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const formData = new FormData(e.target);
-            const newStaff = Object.fromEntries(formData.entries());
-
-            await fetch('/api/staff', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(newStaff)
-            });
-
-            e.target.reset();
-            closeScheduleModal();
-            renderSchedule();
-        });
-    }
+        e.target.reset();
+        closeScheduleModal();
+        // The schedule view will auto-regenerate, so no need to call renderSchedule() here.
+    });
 
 
     // --- Initial Page Load ---
-    switchPage('dashboard');
-    renderPatientPortal('home');
-    fetchAndRenderTriage();
-    if (scheduleDate) {
-        scheduleDate.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-    }
-    renderSchedule();
-    renderPatientArrivalsChart();
+    checkSession();
 });
