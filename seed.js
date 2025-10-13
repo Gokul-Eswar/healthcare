@@ -25,11 +25,19 @@ const seedData = async () => {
 
     // --- Seed Staff ---
     const initialStaff = [
+        // Doctors
         { name: 'Dr. Sarah Johnson', role: 'Doctor', specialization: 'Cardiologist', status: 'Available', queue: 0 },
         { name: 'Dr. Michael Chen', role: 'Doctor', specialization: 'Neurologist', status: 'With Patient', queue: 2 },
         { name: 'Dr. Emily Davis', role: 'Doctor', specialization: 'General Medicine', status: 'Available', queue: 1 },
+        { name: 'Dr. James Wilson', role: 'Doctor', specialization: 'Orthopedics', status: 'Available', queue: 0 },
+        { name: 'Dr. Linda Harris', role: 'Doctor', specialization: 'Pediatrics', status: 'Available', queue: 0 },
+        { name: 'Dr. Robert Clark', role: 'Doctor', specialization: 'General Surgery', status: 'On Break', queue: 0 },
+
+        // Nurses
         { name: 'Nurse Jennifer Wilson', role: 'Nurse', status: 'On Break', queue: 0 },
         { name: 'Nurse David Garcia', role: 'Nurse', status: 'Available', queue: 0 },
+        { name: 'Nurse Maria Rodriguez', role: 'Nurse', status: 'With Patient', queue: 0 },
+        { name: 'Nurse Karen White', role: 'Nurse', status: 'Available', queue: 0 },
     ];
     await Staff.insertMany(initialStaff);
 
